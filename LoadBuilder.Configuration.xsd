@@ -1,0 +1,755 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">  
+  <!-- GENERAL - NULLABLES AND NOT-EMPTIES -->
+  <xs:simpleType name="boolean_nullable">
+    <xs:union>
+      <xs:simpleType>
+        <xs:restriction base='xs:string'>
+          <xs:length value='0'/>
+        </xs:restriction>
+      </xs:simpleType>
+      <xs:simpleType>
+        <xs:restriction base='xs:boolean' />
+      </xs:simpleType>
+    </xs:union>
+  </xs:simpleType>
+  <xs:simpleType name="byte_nullable">
+    <xs:union>
+      <xs:simpleType>
+        <xs:restriction base='xs:string'>
+          <xs:length value='0'/>
+        </xs:restriction>
+      </xs:simpleType>
+      <xs:simpleType>
+        <xs:restriction base='xs:unsignedByte' />
+      </xs:simpleType>
+    </xs:union>
+  </xs:simpleType>
+  <xs:simpleType name="unsignedByte_nullable">
+    <xs:union>
+      <xs:simpleType>
+        <xs:restriction base='xs:string'>
+          <xs:length value='0'/>
+        </xs:restriction>
+      </xs:simpleType>
+      <xs:simpleType>
+        <xs:restriction base='xs:unsignedByte' />
+      </xs:simpleType>
+    </xs:union>
+  </xs:simpleType>
+  <xs:simpleType name="unsignedLong_nullable">
+    <xs:union>
+      <xs:simpleType>
+        <xs:restriction base='xs:string'>
+          <xs:length value='0'/>
+        </xs:restriction>
+      </xs:simpleType>
+      <xs:simpleType>
+        <xs:restriction base='xs:unsignedLong' />
+      </xs:simpleType>
+    </xs:union>
+  </xs:simpleType>
+  <xs:simpleType name="string_notEmpty">
+    <xs:restriction base='xs:string'>
+      <xs:minLength value='1'/>
+    </xs:restriction>
+  </xs:simpleType>
+  
+  <!-- VIRTUAL SWITCH DEFINITIONS -->
+  <xs:complexType name="VirtualSwitchDefinition_Type">
+    <!--
+    VALIDITY:
+      - A valid filesystem name, with content and length constraints.
+      - All virtual switch names must be unique.
+    -->
+    <xs:attribute name="Name" use="required" type="string_notEmpty" />
+    <!--
+    VALIDITY:
+      - Enumeration restriction provides sufficient validation.
+    -->
+    <xs:attribute name="Type" use="required">
+      <xs:simpleType>
+        <xs:restriction base="string_notEmpty">
+          <xs:enumeration value="Private" />
+          <xs:enumeration value="Internal" />
+          <xs:enumeration value="External" />
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+  <xs:complexType name="VirtualSwitchDefinitions_Type">
+    <xs:sequence>
+      <xs:element name="VirtualSwitchDefinition" type="VirtualSwitchDefinition_Type" minOccurs="0" maxOccurs="3" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- LOAD MEMBER DEFINITIONS - MAIN -->
+  <xs:complexType name="LoadMember_Type">
+    <xs:sequence>
+      <!--
+        DEFAULT:
+          - Via XSLT-equivalent PowerShell, if LoadMember.Count -eq 1, the
+            value of /Configuration/Name.
+          - Otherwise, there is NO DEFAULT; if a value was not supplied an
+            exception will be thrown.
+        VALIDITY:
+          - A valid filesystem name, with content and length constraints.
+          - All load member names must be unique.
+      -->
+      <xs:element name="Name" type="xs:string" />
+      <!--
+        DEFAULT:
+          - NONE. Must always be specified, or declined using the value 'none'.
+        VALIDITY:
+          - Must match the Name, or an abbreviated Targeting String, of an
+            operating system defined in OSData.
+          - A 'none' value here requires no meaningful value for OSEdition,
+            OSUpdated, UsrClass, OfflineScript, Unattend, Script, Drivers,
+            OfflinePackages, Modules, and Packages. It will check the
+            value of each of these nodes, and will in fact set them
+            to n/a.
+      -->
+      <xs:element name="OS" type="string_notEmpty" />
+      <xs:element name="VM" type="VM_Type" />
+      <!--
+        DEFAULT:
+          - Via XSLT-equivalent PowerShell, the default or only edition defined
+            for the selected OS. ServerStandard for servers.
+        VALIDITY:
+          - An edition defined for the selected OS.
+      -->
+      <xs:element name="OSEdition" type="xs:string" />
+      <!--
+        DEFAULT:
+          - Via XSLT-equivalent PowerShell, 'true' is preferred, but 'false'
+            will be used if no updated vhd exists matching other options.
+        VALIDITY:
+          - A matching vhd must exist.
+      -->
+      <xs:element name="OSUpdated" type="boolean_nullable" />
+      <!--
+        DEFAULT:
+          - Via XSLT-equivalent PowerShell, 40gb.
+        VALIDITY:
+          - Exactly 40gb, or no less than 60gb, in increments no less than 1gb.
+      -->
+      <xs:element name="VHDSizeBytes" type="unsignedLong_nullable" />
+      <!--
+        DEFAULT:
+          - Via XSLT-equivalent PowerShell, 'Differencing' except when OS -eq
+            'none', or VHDFormat -eq 'vhd' and VHDSizeBytes -ne 40gb.
+        VALIDITY:
+          - Either of the enumerated values, subject only to the constraints above.
+      -->
+      <xs:element name="VHDType">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="" />
+            <xs:enumeration value="Dynamic" />
+            <xs:enumeration value="Differencing" />
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:element>
+      <!--
+        DEFAULT:
+          - Via XSLT-equivalent PowerShell, always 'vhdx'.
+        VALIDITY:
+          - Only 'vhdx' for Generation 2 VMs, 'vhdx' or 'vhd' for Generation 1.
+      -->
+      <xs:element name="VHDFormat">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="" />
+            <xs:enumeration value="vhd" />
+            <xs:enumeration value="vhdx" />
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:element>
+      <xs:element name="ScriptParameters" type="ScriptParameters_Type" />
+      <!--
+        DEFAULT:
+          - Via XSLT-equivalent PowerShell, the file marked as '.default' in
+            the UsrClass path.
+        VALIDITY:
+          - May be declined using the value 'none'.
+          - Otherwise, must match the BaseName of exactly one file in the
+            UsrClass path, once the '.default' token has been removed.
+      -->
+      <xs:element name="UsrClass" type="xs:string" />
+      <!--
+        DEFAULT:
+          - Via XSLT-equivalent PowerShell, an empty string is replaced with
+            'none'.
+        VALIDITY:
+          - Impossible to validate.
+      -->
+      <xs:element name="OfflineScript" type="xs:string" />
+      <!-- 
+        DEFAULT:
+          - Via XSLT-equivalent PowerShell, the file marked as default in the
+            Unattends path specific to the LoadMember's OS and OSEdition.
+        VALIDITY:
+          - May be declined using 'none'.
+          - Otherwise, must match the BaseName of exactly one file in the
+            Unattends path specific to the LoadMember's OS and OSEdition.
+      -->
+      <xs:element name="Unattend" type="xs:string" />
+      <xs:element name="UnattendTransforms" type="UnattendTransforms_Type" />
+      <!--
+        DEFAULT:
+          - Via XSLT-equivalent PowerShell, an empty string is replaced with
+            'none'.
+        VALIDITY:
+          - Impossible to validate.
+      -->
+      <xs:element name="Script" type="xs:string" />
+      <!--
+        SOURCE VALIDITY:
+          - Name of a file or folder within the Packages path.
+            -OR-
+          - Full path to a file or folder on a local drive or network share.
+            -BUT-
+          - Regardless, file must be an .inf file, or folder must contain one or more .inf files.
+        DESTINATION:
+          - No default, and must not be specified.
+      -->
+      <xs:element name="Drivers" type="Packages_Type" />
+      <!--
+        SOURCE VALIDITY:
+          - Name of a file or folder within the Packages path.
+            -OR-
+          - Full path to a file or folder on a local drive or network share.
+            -BUT-
+          - Regardless, file must be a .cab or .msu file, or a folder
+            containing exactly one .cab or .msu file directly within.
+        DESTINATION:
+          - No default, and must not be specified.
+      -->
+      <xs:element name="OfflinePackages" type="Packages_Type" />
+      <!--
+        SOURCE VALIDITY:
+          - Name of a folder within the Modules path.
+            -OR-
+          - Full path to a file or folder on a local drive or network share.
+        DESTINATION:
+          - Mandatory destination is '\CT\Modules'; no custom destination may
+            be specified.
+      -->
+      <xs:element name="Modules" type="Packages_Type" />
+      <!--
+        SOURCE VALIDITY:
+          - Name of a folder within the Packages path.
+            -OR-
+          - Full path to a file or folder on a local drive or network share.
+        DESTINATION:
+          - Default destination is '\CT\Packages', but a custom destination
+            may be used to place the package anywhere on the volume. If the
+            path does not exist, it will be created.
+      -->
+      <xs:element name="Packages" type="Packages_Type" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="LoadMembers_Type">
+    <xs:sequence>
+      <xs:element name="LoadMember" type="LoadMember_Type" minOccurs="0" maxOccurs="10" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- LOAD MEMBER DEFINITIONS - VM PROPERTIES -->
+  <xs:complexType name="VM_Memory_Type">
+    <!--
+    DEFAULT:
+      - Via XSLT-equivalent PowerShell, 512mb/1gb/2gb.
+    VALIDITY:
+      - Either all three settings must be provided, or none.
+      - Values must be 512mb, or evenly divisible by 1gb.
+      - MinimumBytes -le StartupBytes -le MaximumBytes.
+    -->
+    <xs:sequence>
+      <xs:element name="MinimumBytes" type="unsignedLong_nullable" />
+      <xs:element name="StartupBytes" type="unsignedLong_nullable" />
+      <xs:element name="MaximumBytes" type="unsignedLong_nullable" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="VM_Type">
+    <xs:sequence>
+      <!--
+        DEFAULT:
+          - Via XSLT-equivalent PowerShell, the value of ../../Name.
+        VALIDITY:
+          - A valid filesystem name, with content and length constraints.
+          - All load member vm names must be unique.
+      -->
+      <xs:element name="Name" type="xs:string" />
+      <!--
+        DEFAULT:
+          - Via XSLT-equivalent PowerShell, The highest generation supported
+            by the nexus of selected operating system and vhd format.
+        VALIDITY:
+          - One of the enumerated values that is compatible with the nexus of
+            selected operating system and vhd format.
+      -->
+      <xs:element name="Generation">
+        <xs:simpleType>
+          <xs:restriction base="unsignedByte_nullable">
+            <xs:enumeration value="" />
+            <xs:enumeration value="1" />
+            <xs:enumeration value="2" />
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:element>
+      <!--
+        DEFAULT:
+          - Via XSLT-equivalent PowerShell, OSData.VMVersionDefault.
+        VALIDITY:
+          - One of the versions supported by the virtualization host, as
+            retrieved using Get-VMHostSupportedVersion.
+      -->
+      <xs:element name="Version" type="xs:string" />
+      <!--
+        DEFAULT:
+          - Via XSLT-equivalent PowerShell, 1.
+        VALIDITY:
+          - Between 1 and (Get-VMHost).LogicalProcessorCount.
+      -->
+      <xs:element name="ProcessorCount" type="unsignedByte_nullable" />
+      <xs:element name="Memory" type="VM_Memory_Type" />
+      <xs:element name="NetworkAdapters" type="NetworkAdapters_Type" />
+      <xs:element name="VHDs" type="VHDs_Type" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- LOAD MEMBER DEFINITIONS - VM PROPERTIES - NETWORK ADAPTERS -->
+  <xs:complexType name="NetworkAdapters_Type">
+    <xs:sequence>
+    <!--
+    DEFAULT:
+      - Given quirks in the way empty strings are permitted as PowerShell
+        parameter values, default in this instance is triggered using
+        the value 'default'.
+      - Via XSLT-equivalent PowerShell, if VirtualSwitchDefinition.Count -eq
+        1, 'default' is considered a connection to this sole virtual switch.
+      - Otherwise, 'default' will throw an exception.
+    VALIDITY:
+      - 'none', signifying a disconnected adapter.
+      - 'default', processed as above.
+      - Otherwise, the name of a defined Virtual Switch.
+    -->
+      <xs:element name="NetworkAdapter" type="string_notEmpty" minOccurs="0" maxOccurs="3" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- LOAD MEMBER DEFINITIONS - VM PROPERTIES - VHDS -->
+  <xs:complexType name="VHD_Type">
+    <xs:sequence>
+      <!--
+        DEFAULT:
+          - Via XSLT-equivalent PowerShell, an available name of the form
+            'Disk#'.
+        VALIDITY:
+          - A valid filesystem name, with content and length constraints.
+          - All vhd names must be unique per load member.
+      -->
+      <xs:element name="Name" type="xs:string" />
+      <!--
+        DEFAULT:
+          - Via XSLT-equivalent PowerShell, 40gb.
+        VALIDITY:
+          - Exactly 40gb, or no less than 60gb, in increments no less than 1gb.
+      -->
+      <xs:element name="SizeBytes" type="unsignedLong_nullable" />
+      <!--
+        SOURCE VALIDITY:
+          - Name of a folder within the Packages path.
+            -OR-
+          - Full path to a file or folder on a local drive or network share.
+        DESTINATION:
+          - Default destination is '\', which represents the root of the
+            volume, but a custom destination may be used to place the
+            package anywhere on the volume. If the path does not exist,
+            it will be created.
+      -->
+      <xs:element name="Packages" type="Packages_Type" />
+      <!--
+        VALIDITY:
+          - A 'false' value here requires that no packages have been defined for this vhd,
+            and will in fact set this node's content to 'n/a'
+      -->
+      <xs:element name="AutoPartition" type="xs:boolean" />
+      <xs:element name="AutoAttach" type="xs:boolean" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="VHDs_Type">
+    <xs:sequence>
+      <xs:element name="VHD" type="VHD_Type" minOccurs="0" maxOccurs="8" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- LOAD MEMBER DEFINITIONS - SCRIPT PARAMETERS -->
+  <xs:complexType name="ScriptParameter_Type">
+    <!--
+    VALIDITY:
+    - Letters and numbers. No other characters.
+    -->
+    <xs:attribute name="Name" use="required" type="string_notEmpty" />
+    <!--
+    VALIDITY:
+    - Currently, none. May introduce as needed / advised. When transformed for
+      use in PowerShell, (exact) strings 'true' and 'false' become values of
+      [System.Boolean] type.
+    -->
+    <xs:attribute name="Value" use="required" type="xs:string" />
+  </xs:complexType>
+  <!--
+  VALIDITY:
+  - Further validation on the use of this capability is possible, but may be
+    unwise.
+  -->
+  <xs:complexType name="ScriptParameters_Type">
+    <xs:sequence>
+      <xs:element name="ScriptParameter" type="ScriptParameter_Type" minOccurs="0" maxOccurs="3" />
+    </xs:sequence>
+  </xs:complexType>
+
+
+  <!-- LOAD MEMBER DEFINITIONS - UNATTEND TRANSFORMS -->
+  <xs:complexType name="UnattendTransforms_Type">
+    <xs:sequence>
+      <!--
+        DEFAULT:
+          - Via XSLT-equivalent PowerShell, 'true' if Member Name is a valid
+            computer name AND no computer name was explicitly set; false
+            otherwise.
+        VALIDITY:
+          - If 'true', will throw an exception if Member Name is not a valid
+            computer name, or if a computer name was also provided.
+      -->
+      <xs:element name="UseMemberNameAsComputerName" type="boolean_nullable" />
+      <!--
+        DEFAULT:
+          - If UserMemberNameAsComputerName evaluates to 'true', the Member
+            Name. Otherwise, an asterisk, signifying a random name.
+        VALIDITY:
+          - Must be a valid computer name.
+      -->
+      <xs:element name="ComputerName" type="xs:string" />
+    </xs:sequence>
+  </xs:complexType>
+  
+  <!-- LOAD MEMBER DEFINITIONS - PACKAGES -->
+  <xs:complexType name="Package_Type">
+    <!--
+        VALIDITY:
+          - The name of a file or folder in a path defined as default for the
+            package type.
+              -OR-
+          - In some contexts, a full local or share path to an existing file or
+            folder.
+              -AND-
+          - Some package types may add more constraints or transformations
+            on the source. "OfflinePackages", for example, will attempt
+            to resolve a .cab or .msu file to apply to the image from a
+            containing folder.
+      -->
+    <xs:attribute name="Source" use="required" type="string_notEmpty" />
+    <!--
+        DEFAULT:
+          - Via XSLT-equivalent PowerShell, either the path defined as default
+            for the destination type, or 'n/a' if the package type does not
+            support custom destinations.
+        VALIDITY:
+          - If the package type supports custom destinations, a valid path
+            relative to the root of a filesystem drive.
+              -OR-
+          - If the package type does not support custom destinations, no
+            data should be provided at this node; if any data is, an
+            exception will be thrown.
+      -->
+    <xs:attribute name="Destination" use="required" type="xs:string" />
+  </xs:complexType>
+  <xs:complexType name="Packages_Type">
+    <xs:sequence>
+      <xs:element name="Package" type="Package_Type" minOccurs="0" maxOccurs="10" />
+    </xs:sequence>
+  </xs:complexType>
+  
+  <!-- CREDENTIAL DEFINITIONS -->
+  <xs:complexType name="Credential_Type">
+    <!--
+        DEFAULT:
+          - Via XSLT-equivalent PowerShell, a single '.', signifying use of
+            local authority.
+        VALIDITY:
+          - Content and length constraints.
+    -->
+    <xs:attribute name="Domain" use="required" type="string_notEmpty" />
+    <!--
+        VALIDITY:
+          - Content and length constraints.
+    -->
+    <xs:attribute name="UserName" use="required" type="string_notEmpty" />
+    <xs:attribute name="Password" use="required" type="string_notEmpty" />
+  </xs:complexType>
+  <xs:complexType name="Credentials_Type">
+    <xs:sequence>
+      <xs:element name="Credential" type="Credential_Type" minOccurs="0" maxOccurs="3" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ACTION DEFINITIONS - ABSTRACT -->
+  <xs:complexType name="Actions_Targets_Type">
+    <xs:sequence>
+      <xs:element name="Target" type="string_notEmpty" minOccurs="0" maxOccurs="10" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Action_Type" abstract="true">
+    <!--
+        DEFAULT:
+          - Via XSLT-equivalent PowerShell, a 'target' for every LoadMember
+            defined in the configuration or imported via the base load.
+        VALIDITY:
+          - All targets must be valid defined or imported LoadMembers, in the
+            "CompiledMembers" register.
+          - No one target may be repeated in a single Action.
+          - Some actions may only apply to a single Target.
+    -->
+    <xs:sequence>
+      <xs:element name="Targets" type="Actions_Targets_Type"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ACTION DEFINITIONS - CONCRETE -->
+  <xs:complexType name="StartAction">
+    <xs:complexContent>
+      <xs:extension base="Action_Type">
+        <xs:sequence>
+          <xs:element name="WaitForHeartbeat" type="xs:boolean" />
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="StopAction">
+    <xs:complexContent>
+      <xs:extension base="Action_Type" />
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="WaitAction">
+    <xs:complexContent>
+      <xs:extension base="Action_Type">
+        <xs:sequence>
+          <xs:element name="UseShim" type="xs:boolean" />
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="PokeAction">
+    <xs:complexContent>
+      <xs:extension base="Action_Type">
+        <xs:sequence>
+          <xs:element name="UseShim" type="xs:boolean" />
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="InjectAction">
+    <xs:complexContent>
+      <xs:extension base="Action_Type">
+        <xs:sequence>
+          <xs:element name="ScriptParameters" type="ScriptParameters_Type" />
+          <!--
+          VALIDITY:
+          - Difficult/Impossible to validate.
+          -->
+          <xs:element name="Script" type="string_notEmpty" />
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="CustomAction">
+    <xs:complexContent>
+      <xs:extension base="Action_Type">
+        <xs:sequence>
+          <xs:element name="ScriptParameters" type="ScriptParameters_Type" />
+          <!--
+          VALIDITY:
+          - Difficult/Impossible to validate.
+          -->
+          <xs:element name="Script" type="string_notEmpty" />
+          <!--
+          DEFAULT:
+            - Via XSLT-equivalent PowerShell, 'none' when the action targets
+              one LoadMember, and 'n/a' when the action targets more than
+              one.
+          VALIDITY:
+            - May only be provided when the action targets one LoadMember.
+          -->
+          <xs:element name="MountVhd" type="byte_nullable" />
+          <xs:element name="ExpectOutput" type="xs:boolean" />
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="AttendedAction">
+    <xs:complexContent>
+      <xs:extension base="Action_Type">
+        <xs:sequence>
+          <!--
+          VALIDITY:
+          - Difficult/Impossible to validate. If content causes trouble, will
+            introduce constraints as needed.
+          -->
+          <xs:element name="Description" type="string_notEmpty" />
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="CheckpointAction">
+    <xs:complexContent>
+      <xs:extension base="Action_Type">
+        <xs:sequence>
+          <!--
+          VALIDITY:
+          - Difficult/Impossible to validate. If content causes trouble, will
+            introduce constraints as needed.
+          -->
+          <xs:element name="CheckpointName" type="xs:string" />
+          <xs:element name="OptimizeVhds" type="xs:boolean" />
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="ExportVMAction">
+    <xs:complexContent>
+      <xs:extension base="Action_Type">
+        <xs:sequence>
+          <!--
+          DEFAULT:
+            - Via XSLT-equivalent PowerShell, the default VM export path.
+          VALIDITY:
+            - Path to an existing folder on a local volume or a network share.
+          -->
+          <xs:element name="Destination" type="xs:string" />
+          <xs:element name="OptimizeVhds" type="xs:boolean" />
+          <xs:element name="RemoveRealizedLoad" type="xs:boolean" />
+          <!--
+          DEFAULT:
+            - Via PowerShell Cmdlet, Import.
+          -->
+          <xs:element name="SpecialHandling">
+            <xs:simpleType>
+              <xs:restriction base="string_notEmpty">
+                <xs:enumeration value="None" />
+                <xs:enumeration value="Import" />
+                <xs:enumeration value="ImportAndInit" />
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:element>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="ExportLoadAction">
+    <xs:complexContent>
+      <xs:extension base="Action_Type">
+        <xs:sequence>
+          <!--
+          DEFAULT:
+            - Via XSLT-equivalent PowerShell, the default load export path.
+          VALIDITY:
+            - Path to an existing folder on a local volume or network share.
+          -->
+          <xs:element name="Destination" type="xs:string" />
+          <xs:element name="OptimizeVhds" type="xs:boolean" />
+          <xs:element name="RemoveRealizedLoad" type="xs:boolean" />
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- ACTION DEFINITIONS - AGGREGATE -->
+  <xs:complexType name="Actions_Type">
+    <xs:sequence>
+      <xs:element name="Action" type="Action_Type" minOccurs="0" maxOccurs="100" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ALTERNATE DEFINITIONS -->
+  <xs:complexType name="Alternates_Targets_Type">
+    <xs:sequence>
+      <xs:element name="Target" type="string_notEmpty" minOccurs="0" maxOccurs="10" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Alternate_Type">
+    <xs:sequence>
+      <!--
+        VALIDITY:
+          - A valid filesystem name, with content and length constraints.
+      -->
+      <xs:element name="Name" type="string_notEmpty" />
+      <!--
+      DEFAULT:
+      - Via XSLT-equivalent PowerShell, if the list of targets is empty, a
+        single Target is added for 'Base'
+      VALIDITY:
+      - Each target must match the constraints of the AlternateName node,
+        and Alternate/Name, except that it can *also* include asterisks
+        to use as wildcards to target multiple compiled configurations.
+      -->
+      <xs:element name="Targets" type="Alternates_Targets_Type" />
+      <xs:element name="Script" type="string_notEmpty" />
+      <xs:element name="AppendName" type="xs:boolean" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Alternates_Type">
+    <xs:sequence>
+      <xs:element name="Alternate" type="Alternate_Type" minOccurs="0" maxOccurs="9" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="Settings_Type">
+    <xs:sequence>
+      <xs:element name="AllowDifferencedImportFromFastLoadExport" type="xs:boolean" />
+    </xs:sequence>
+  </xs:complexType>
+  
+  <!-- CONFIGURATION -->
+  <xs:element name="Configuration">
+    <xs:complexType>
+      <xs:sequence>
+        <!--
+        DEFAULT:
+          - Via PowerShell, if configuration is constructed via shortcut context,
+            this will be set to the config file name immediately before the xml
+            is resolved.
+          - There is NO DEFAULT when configuration is constructed in any other
+            context. A value MUST be supplied.
+        VALIDITY:
+          - A valid filesystem name, with content and length constraints.
+        -->
+        <xs:element name="Name" type="string_notEmpty" />
+        <!--
+        DEFAULT:
+          - Via PowerShell configuration cmdlet, 'none'.
+        VALIDITY:
+          - 'none' is always valid.
+          - The name of a folder in the LoadExport or LoadExport_Fast paths,
+            the content of which is evaluated using complex criteria.
+        -->
+        <xs:element name="Base" type="string_notEmpty" />
+        <xs:element name="VirtualSwitchDefinitions" type="VirtualSwitchDefinitions_Type" />
+        <xs:element name="LoadMembers" type="LoadMembers_Type" />
+        <xs:element name="Credentials" type="Credentials_Type" />
+        <xs:element name="Actions" type="Actions_Type" />
+        <xs:element name="Settings" type="Settings_Type" />
+        <!--
+        DEFAULT:
+          - Via XSLT-equivalent PowerShell, 'Base' when alternates are defined, 'n/a' when they are not.
+        VALIDITY:
+          - A valid filesystem name, with content and length constraints.
+        -->
+        <xs:element name="AlternateName" type="xs:string" />
+        <xs:element name="Alternates" type="Alternates_Type" />
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

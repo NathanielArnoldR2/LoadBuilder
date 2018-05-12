@@ -1,0 +1,18 @@
+Set-Path @{
+  Configurations     = "\\NA-SVR-STORAGE\Storage\PowerShell\Scripts\LoadBuilder\Configurations"
+  Interface          = Join-Path -Path ([System.Environment]::GetFolderPath("Desktop")) -ChildPath "Tools\Load Builder"
+  ConfigTemplate     = "\\NA-SVR-STORAGE\Storage\PowerShell\Scripts\LoadBuilder\Resource Files\configTemplate.ps1"
+  Modules            = "\\NA-SVR-STORAGE\Storage\PowerShell\Modules"
+  Packages           = "\\NA-SVR-STORAGE\Storage\Library\Packages"
+  ShortcutHandler    = "\\NA-SVR-STORAGE\Storage\PowerShell\Scripts\LoadBuilder\shortcutHandler.ps1"
+  Unattends          = "\\NA-SVR-STORAGE\Storage\Resources\OS Configuration Files\Unattend-Files"
+  UsrClass           = "\\NA-SVR-STORAGE\Storage\Resources\OS Configuration Files\UsrClass-Hives"
+  VHDs               = "\\NA-SVR-STORAGE\Storage\Library\Windows OS Source Files\VHD"
+  OSData             = "\\NA-SVR-STORAGE\Storage\PowerShell\Scripts\OSData\OSData.ps1"
+  VMExport           = "\\NA-SVR-STORAGE\Storage\Library\LoadHOST Payloads"
+  LoadExport         = "\\NA-SVR-STORAGE\Storage\Library\LoadBuilder Exports"
+  LoadExport_Fast    = "D:\LoadBuilder Exports"
+  RealizedLoads      = "C:\TestLoads"
+  RealizedLoads_Base = "D:\TestLoads"
+  PerfMonLogs        = "\\NA-SVR-STORAGE\Storage\Library\Performance Logs\LoadBuilder"
+}

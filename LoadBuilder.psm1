@@ -105,11 +105,25 @@ need to be parsed and read in the context of this function.
 # Override Microsoft.PowerShell.Utility\Write-Verbose to timestamp all verbose
 # output written by this module.
 function Write-Verbose ($Message) {
+  $stored = $Host.PrivateData.VerboseForegroundColor
+  $Host.PrivateData.VerboseForegroundColor = "White"
+  $Host.PrivateData.VerboseBackgroundColor = $Host.UI.RawUI.BackgroundColor
+
   Microsoft.PowerShell.Utility\Write-Verbose -Message "[$([datetime]::Now.ToString("HH:mm"))] $($Message)"
+
+  $Host.PrivateData.VerboseForegroundColor = $stored
+  $Host.PrivateData.VerboseBackgroundColor = $Host.UI.RawUI.BackgroundColor
 }
 
 function Write-Warning ($Message) {
+  $stored = $Host.PrivateData.WarningForegroundColor
+  $Host.PrivateData.WarningForegroundColor = "Yellow"
+  $Host.PrivateData.WarningBackgroundColor = $Host.UI.RawUI.BackgroundColor
+
   Microsoft.PowerShell.Utility\Write-Warning -Message "[$([datetime]::Now.ToString("HH:mm"))] $($Message)"
+
+  $Host.PrivateData.WarningForegroundColor = $stored
+  $Host.PrivateData.WarningBackgroundColor = $Host.UI.RawUI.BackgroundColor
 }
 
 . $PSScriptRoot\LoadBuilder.ResourcePathManager.ps1

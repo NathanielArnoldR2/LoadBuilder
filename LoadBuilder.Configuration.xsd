@@ -54,6 +54,47 @@
       <xs:minLength value='1'/>
     </xs:restriction>
   </xs:simpleType>
+
+  <!-- CONFIGURATION -->
+  <xs:element name="Configuration">
+    <xs:complexType>
+      <xs:sequence>
+        <!--
+        DEFAULT:
+          - Via PowerShell, if configuration is constructed via shortcut context,
+            this will be set to the config file name immediately before the xml
+            is resolved.
+          - There is NO DEFAULT when configuration is constructed in any other
+            context. A value MUST be supplied.
+        VALIDITY:
+          - A valid filesystem name, with content and length constraints.
+        -->
+        <xs:element name="Name" type="string_notEmpty" />
+        <!--
+        DEFAULT:
+          - Via PowerShell configuration cmdlet, 'none'.
+        VALIDITY:
+          - 'none' is always valid.
+          - The name of a folder in the LoadExport or LoadExport_Fast paths,
+            the content of which is evaluated using complex criteria.
+        -->
+        <xs:element name="Base" type="string_notEmpty" />
+        <xs:element name="VirtualSwitchDefinitions" type="VirtualSwitchDefinitions_Type" />
+        <xs:element name="LoadMembers" type="LoadMembers_Type" />
+        <xs:element name="Credentials" type="Credentials_Type" />
+        <xs:element name="Actions" type="Actions_Type" />
+        <xs:element name="Settings" type="Settings_Type" />
+        <!--
+        DEFAULT:
+          - Via XSLT-equivalent PowerShell, 'Base' when alternates are defined, 'n/a' when they are not.
+        VALIDITY:
+          - A valid filesystem name, with content and length constraints.
+        -->
+        <xs:element name="AlternateName" type="xs:string" />
+        <xs:element name="Alternates" type="Alternates_Type" />
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
   
   <!-- VIRTUAL SWITCH DEFINITIONS -->
   <xs:complexType name="VirtualSwitchDefinition_Type">
@@ -411,7 +452,6 @@
     </xs:sequence>
   </xs:complexType>
 
-
   <!-- LOAD MEMBER DEFINITIONS - UNATTEND TRANSFORMS -->
   <xs:complexType name="UnattendTransforms_Type">
     <xs:sequence>
@@ -711,45 +751,4 @@
       <xs:element name="AllowDifferencedImportFromFastLoadExport" type="xs:boolean" />
     </xs:sequence>
   </xs:complexType>
-  
-  <!-- CONFIGURATION -->
-  <xs:element name="Configuration">
-    <xs:complexType>
-      <xs:sequence>
-        <!--
-        DEFAULT:
-          - Via PowerShell, if configuration is constructed via shortcut context,
-            this will be set to the config file name immediately before the xml
-            is resolved.
-          - There is NO DEFAULT when configuration is constructed in any other
-            context. A value MUST be supplied.
-        VALIDITY:
-          - A valid filesystem name, with content and length constraints.
-        -->
-        <xs:element name="Name" type="string_notEmpty" />
-        <!--
-        DEFAULT:
-          - Via PowerShell configuration cmdlet, 'none'.
-        VALIDITY:
-          - 'none' is always valid.
-          - The name of a folder in the LoadExport or LoadExport_Fast paths,
-            the content of which is evaluated using complex criteria.
-        -->
-        <xs:element name="Base" type="string_notEmpty" />
-        <xs:element name="VirtualSwitchDefinitions" type="VirtualSwitchDefinitions_Type" />
-        <xs:element name="LoadMembers" type="LoadMembers_Type" />
-        <xs:element name="Credentials" type="Credentials_Type" />
-        <xs:element name="Actions" type="Actions_Type" />
-        <xs:element name="Settings" type="Settings_Type" />
-        <!--
-        DEFAULT:
-          - Via XSLT-equivalent PowerShell, 'Base' when alternates are defined, 'n/a' when they are not.
-        VALIDITY:
-          - A valid filesystem name, with content and length constraints.
-        -->
-        <xs:element name="AlternateName" type="xs:string" />
-        <xs:element name="Alternates" type="Alternates_Type" />
-      </xs:sequence>
-    </xs:complexType>
-  </xs:element>
 </xs:schema>

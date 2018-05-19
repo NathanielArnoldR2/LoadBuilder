@@ -406,9 +406,9 @@ rule -Individual /Configuration/Base `
       )
 
       $paths_source_vm = Join-Path -Path $basePath -ChildPath $_.VMName
-      $paths_relative_vm_config = Join-Path -Path "Virtual Machines" -ChildPath "$($_.VMId).vmcx"
+      $paths_relative_vmconfig = Join-Path -Path "Virtual Machines" -ChildPath "$($_.VMId).vmcx"
 
-      $vmConfigPath = Join-Path -Path $paths_source_vm -ChildPath $paths_relative_vm_config
+      $vmConfigPath = Join-Path -Path $paths_source_vm -ChildPath $paths_relative_vmconfig
 
       if (-not (Test-Path -LiteralPath $vmConfigPath)) {
         throw "VM resources for base load member '$($_.MemberName)' were missing/incomplete."
@@ -438,20 +438,38 @@ rule -Individual /Configuration/Base `
         CreateElement("PathType")
       ).InnerXml = $pathType
 
-      # The following paths are needed to validate existence of resources at
-      # source. It would be wasteful not to store them in the markup, even
-      # though resolution of most paths occurs later.
-      $baseMember.AppendChild(
+      # The following paths were used above to validate existence of resources
+      # at source. It would be wasteful not to then store them in the markup
+      # now, even though *most* paths are resolved and added to markup later.
+      $paths = $baseMember.AppendChild(
         $node.
         OwnerDocument.
-        CreateElement("Paths.Source.VM")
+        CreateElement("Paths")
+      )
+
+      $source = $paths.AppendChild(
+        $node.
+        OwnerDocument.
+        CreateElement("Source")
+      )
+
+      $source.AppendChild(
+        $node.
+        OwnerDocument.
+        CreateElement("VM")
       ).InnerXml = $paths_source_vm
 
-      $baseMember.AppendChild(
+      $relative = $paths.AppendChild(
         $node.
         OwnerDocument.
-        CreateElement("Paths.Relative.VM.Config")
-      ).InnerXml = $paths_relative_vm_config
+        CreateElement("Relative")
+      )
+
+      $relative.AppendChild(
+        $node.
+        OwnerDocument.
+        CreateElement("VMConfig")
+      ).InnerXml = $paths_relative_vmconfig
 
       $compiledMember.AppendChild(
         $node.
@@ -513,6 +531,17 @@ rule -Aggregate /Configuration/VirtualSwitchDefinitions/VirtualSwitchDefinition/
 
 #region /Configuration/LoadMembers
 $loadMemberCount = $Xml.SelectNodes("/Configuration/LoadMembers/LoadMember").Count
+
+# Paths node must be pre-created to ease logic differences between
+# LoadMember.OS -eq and -ne 'none'.
+rule -Individual /Configuration/LoadMembers/LoadMember `
+     -Script {
+  $node.AppendChild(
+    $node.
+    OwnerDocument.
+    CreateElement("Paths")
+  ) | Out-Null
+}
 
 rule -Individual /Configuration/LoadMembers/LoadMember/Name `
      -PrereqScript {
@@ -879,8 +908,8 @@ rule -Individual /Configuration/LoadMembers/LoadMember/VHDFormat `
 }
 
 # Requires knowing OS, OSEdition, VHDPartitionStyle (which is derived from
-# VM/Generation), and VHDFormat. Writes ParentVHD path values to LoadMember
-# Node.
+# VM/Generation), and VHDFormat. Writes Source.VHD and Realized_Base.VHD
+# path values to LoadMember node.
 rule -Individual /Configuration/LoadMembers/LoadMember/OSUpdated `
      -PrereqScript {
   $nodeValue -ne "n/a"
@@ -912,16 +941,30 @@ rule -Individual /Configuration/LoadMembers/LoadMember/OSUpdated `
     throw "No vhd file was found at the path indicated by OS, Edition, VHDPartitionStyle, and VHDFormat settings."
   }
 
-  $memberNode.AppendChild(
-    $memberNode.
-      OwnerDocument.
-      CreateElement("Paths.ParentVHD.Source")
+  $pathsNode = $memberNode.SelectSingleNode("Paths")
+
+  $sourceNode = $pathsNode.AppendChild(
+    $node.
+    OwnerDocument.
+    CreateElement("Source")
+  )
+
+  $sourceNode.AppendChild(
+    $node.
+    OwnerDocument.
+    CreateElement("VHD")
   ).InnerXml = $vhdPaths.($updatedMap.($node.$valProp))
 
-  $memberNode.AppendChild(
-    $memberNode.
-      OwnerDocument.
-      CreateElement("Paths.ParentVHD.InBase")
+  $realizedBaseNode = $pathsNode.AppendChild(
+    $node.
+    OwnerDocument.
+    CreateElement("Realized_Base")
+  )
+
+  $realizedBaseNode.AppendChild(
+    $node.
+    OwnerDocument.
+    CreateElement("VHD")
   ).InnerXml = Join-Path -Path (Get-Path RealizedLoads_Base) `
                          -ChildPath (Split-Path -Path $vhdPaths.($updatedMap.($node.$valProp)) -Leaf)
 }
@@ -1266,6 +1309,7 @@ rule -Individual /Configuration/LoadMembers/LoadMember/Packages/Package/@Destina
 
 rule -Individual /Configuration/LoadMembers/LoadMember `
      -Script {
+
   $properties = [ordered]@{
     MemberName = $node.SelectSingleNode("Name").InnerXml
     VMName     = $node.SelectSingleNode("VM/Name").InnerXml
@@ -1460,10 +1504,16 @@ elseif ($ResolveMode -eq "SuppliedConfiguration") {
 #region Path data for realization
 rule -Individual /Configuration `
      -Script {
-  $node.AppendChild(
+  $pathsNode = $node.AppendChild(
     $node.
     OwnerDocument.
-    CreateElement("Paths.Realized")
+    CreateElement("Paths")
+  )
+
+  $pathsNode.AppendChild(
+    $node.
+    OwnerDocument.
+    CreateElement("Realized")
   ).InnerXml = Join-Path -Path (Get-Path RealizedLoads) -ChildPath $node.Name
 }
 
@@ -1471,58 +1521,80 @@ rule -Individual /Configuration/BaseMembers/BaseMember `
      -Script {
   $cfgNode = $node.SelectSingleNode("/Configuration")
 
-  $realized_vm = $cfgNode."Paths.Realized" | Join-Path -ChildPath $node.VMName
-  $realized_vm_config = $realized_vm | Join-Path -ChildPath $node."Paths.Relative.VM.Config"
+  $vm = $cfgNode.Paths.Realized | Join-Path -ChildPath $node.VMName
+  $vmConfig = $vm | Join-Path -ChildPath $node.Paths.Relative.VMConfig
 
-  $node.AppendChild(
+  $pathsNode = $node.SelectSingleNode("Paths")
+
+  $realizedNode = $pathsNode.AppendChild(
     $node.
     OwnerDocument.
-    CreateElement("Paths.Realized.VM")
-  ).InnerXml = $realized_vm
+    CreateElement("Realized")
+  )
 
-  $node.AppendChild(
+  $realizedNode.AppendChild(
     $node.
     OwnerDocument.
-    CreateElement("Paths.Realized.VM.Config")
-  ).InnerXml = $realized_vm_config
+    CreateElement("VM")
+  ).InnerXml = $vm
+
+  $realizedNode.AppendChild(
+    $node.
+    OwnerDocument.
+    CreateElement("VMConfig")
+  ).InnerXml = $vmConfig
 }
 
 rule -Individual /Configuration/LoadMembers/LoadMember `
      -Script {
   $cfgNode = $node.SelectSingleNode("/Configuration")
 
-  $realized = Join-Path -Path ($cfgNode."Paths.Realized") -ChildPath $node.VM.Name
-  $realized_vhds = Join-Path -Path $realized -ChildPath "Virtual Hard Disks"
-  $realized_vhd = Join-Path -Path $realized_vhds -ChildPath "$($node.VM.Name).$($node.VHDFormat)"
+  $pathsNode = $node.SelectSingleNode("Paths")
 
-  $node.AppendChild(
+  $realizedNode = $pathsNode.AppendChild(
     $node.
     OwnerDocument.
-    CreateElement("Paths.Realized")
-  ).InnerXml = $realized
+    CreateElement("Realized")
+  )
 
-  $node.AppendChild(
+  $vm = Join-Path -Path $cfgNode.Paths.Realized -ChildPath $node.VM.Name
+  $vhds = Join-Path -Path $vm -ChildPath "Virtual Hard Disks"
+  $vhd = Join-Path -Path $vhds -ChildPath "$($node.VM.Name).$($node.VHDFormat)"
+
+  $realizedNode.AppendChild(
     $node.
     OwnerDocument.
-    CreateElement("Paths.Realized.VHDs")
-  ).InnerXml = $realized_vhds
+    CreateElement("VM")
+  ).InnerXml = $vm
 
-  $node.AppendChild(
+  $realizedNode.AppendChild(
     $node.
     OwnerDocument.
-    CreateElement("Paths.Realized.VHD")
-  ).InnerXml = $realized_vhd
+    CreateElement("VHDs")
+  ).InnerXml = $vhds
+
+  $realizedNode.AppendChild(
+    $node.
+    OwnerDocument.
+    CreateElement("VHD")
+  ).InnerXml = $vhd
 }
 
 rule -Individual /Configuration/LoadMembers/LoadMember/VM/VHDs/VHD `
      -Script {
   $memberNode = $node.SelectSingleNode("../../..")
 
-  $node.AppendChild(
+  $pathsNode = $node.AppendChild(
     $node.
     OwnerDocument.
-    CreateElement("Paths.Realized")
-  ).InnerXml = Join-Path -Path $memberNode."Paths.Realized.VHDs" `
+    CreateElement("Paths")
+  )
+
+  $pathsNode.AppendChild(
+    $node.
+    OwnerDocument.
+    CreateElement("Realized")
+  ).InnerXml = Join-Path -Path $memberNode.Paths.Realized.VHDs `
                          -ChildPath "$($memberNode.VM.Name) $($node.Name).$($memberNode.VHDFormat)"
 }
 #endregion

@@ -253,7 +253,7 @@ function Import-LoadBuilderMember {
 
     $itemsForDifference = @()
     $itemsForCopy = @(
-      Get-ChildItem -LiteralPath $Member."Paths.Source.VM" -Recurse -File
+      Get-ChildItem -LiteralPath $Member.Paths.Source.VM -Recurse -File
     )
 
     if ($useDifferenced) {
@@ -264,8 +264,8 @@ function Import-LoadBuilderMember {
     $itemsForCopy |
       ForEach-Object {
         $destPath = $_.DirectoryName.Replace(
-          $Member."Paths.Source.VM",
-          $Member."Paths.Realized.VM"
+          $Member.Paths.Source.VM,
+          $Member.Paths.Realized.VM
         )
 
         if (-not (Test-Path -LiteralPath $destPath)) {
@@ -280,8 +280,8 @@ function Import-LoadBuilderMember {
     $itemsForDifference |
       ForEach-Object {
         $destPath = $_.DirectoryName.Replace(
-          $Member."Paths.Source.VM",
-          $Member."Paths.Realized.VM"
+          $Member.Paths.Source.VM,
+          $Member.Paths.Realized.VM
         )
 
         $destLoc = $destPath | Join-Path -ChildPath $_.Name
@@ -295,7 +295,7 @@ function Import-LoadBuilderMember {
           Out-Null
       }
 
-    Import-VM -Path $Member."Paths.Realized.VM.Config" |
+    Import-VM -Path $Member.Paths.Realized.VMConfig |
       Out-Null
   }
 }
@@ -315,26 +315,26 @@ function Build-LoadBuilderMember {
   process {
     Write-Verbose "Building member '$($Member.Name)'."
 
-    New-Item -Path $Member."Paths.Realized.VHDs" -ItemType Directory -Force |
+    New-Item -Path $Member.Paths.Realized.VHDs -ItemType Directory -Force |
       Out-Null
 
     Write-Verbose "  - Acquiring primary/os vhd."
     if ($Member.OS -ne "none" -and $Member.VHDType -eq "Differencing") {
-      if (-not (Test-Path -LiteralPath $Member."Paths.ParentVHD.InBase" -PathType Leaf)) {
-        Copy-Item -LiteralPath $Member."Paths.ParentVHD.Source" `
-                  -Destination $Member."Paths.ParentVHD.InBase"
+      if (-not (Test-Path -LiteralPath $Member.Paths.Realized_Base.VHD -PathType Leaf)) {
+        Copy-Item -LiteralPath $Member.Paths.Source.VHD `
+                  -Destination $Member.Paths.Realized_Base.VHD
       }
 
-      New-VHD -ParentPath $Member."Paths.ParentVHD.InBase" `
-              -Path $Member."Paths.Realized.VHD" |
+      New-VHD -ParentPath $Member.Paths.Realized_Base.VHD `
+              -Path $Member.Paths.Realized.VHD |
         Out-Null
     }
     elseif ($Member.OS -ne 'none') {
-      Copy-Item -LiteralPath $Member."Paths.ParentVHD.Source" `
-                -Destination $Member."Paths.Realized.VHD"
+      Copy-Item -LiteralPath $Member.Paths.Source.VHD `
+                -Destination $Member.Paths.Realized.VHD
     }
     elseif ($Member.OS -eq 'none') {
-      New-VHD -Path $Member."Paths.Realized.VHD" -SizeBytes $Member.VHDSizeBytes |
+      New-VHD -Path $Member.Paths.Realized.VHD -SizeBytes $Member.VHDSizeBytes |
         Out-Null
     }
 
@@ -403,7 +403,7 @@ function Build-LoadBuilderMember_BuildAdditionalVHD {
   process {
     Write-Verbose "  - Building additional vhd '$($VHD.Name)'."
 
-    New-VHD -Path $VHD."Paths.Realized" -SizeBytes $VHD.SizeBytes |
+    New-VHD -Path $VHD.Paths.Realized -SizeBytes $VHD.SizeBytes |
       Out-Null
 
     if ($VHD.AutoPartition -ne "true") {
@@ -412,7 +412,7 @@ function Build-LoadBuilderMember_BuildAdditionalVHD {
 
     $partitionStyle = $VHD.SelectSingleNode("../../../VHDPartitionStyle").InnerXml
 
-    $disk = Mount-VHD -Path $VHD."Paths.Realized" -Passthru |
+    $disk = Mount-VHD -Path $VHD.Paths.Realized -Passthru |
               Get-Disk |
               Initialize-Disk -PartitionStyle $partitionStyle -PassThru
 
@@ -447,7 +447,7 @@ function Build-LoadBuilderMember_BuildAdditionalVHD {
         Copy-LoadBuilderVHDPackage -VolumeRoot $volumeRoot
     }
 
-    Dismount-VHD -Path $VHD."Paths.Realized"
+    Dismount-VHD -Path $VHD.Paths.Realized
   }
 }
 
@@ -469,12 +469,13 @@ function Build-LoadBuilderMember_BuildVM {
 
     # For the "Path" attribute, New-VM expects the location where the full
     # "VMName/Virtual Machines/GUID.vmcx" folder structure will reside,
-    # which is the path of the realized load entire.
-    $VMPath = $Member.SelectSingleNode("/Configuration/Paths.Realized").InnerXml
+    # which is the path of the realized load entire, rather than any
+    # associated with the member itself.
+    $VMPath = $Member.SelectSingleNode("/Configuration").Paths.Realized
 
     $VM = New-VM -Name $Member.VM.Name `
                  -Path $VMPath `
-                 -VHDPath $Member."Paths.Realized.VHD" `
+                 -VHDPath $Member.Paths.Realized.VHD `
                  -Generation $Member.VM.Generation `
                  -Version $Member.VM.Version
 
@@ -484,7 +485,7 @@ function Build-LoadBuilderMember_BuildVM {
     }
 
     # The "if" framing is needed to retain compatibility w/ Windows builds -lt
-    # 15063 (v1703) -- which would include my NA-SVR-STORAGE
+    # 15063 (v1703) -- which includes my own NA-SVR-STORAGE.
     if ((Get-Command Set-VM).Parameters.ContainsKey("AutomaticCheckpointsEnabled")) {
       $SetParameters.AutomaticCheckpointsEnabled = $false
     }
@@ -528,7 +529,7 @@ function Build-LoadBuilderMember_BuildVM {
       Where-Object AutoAttach -eq true |
       ForEach-Object {
         $VM |
-          Add-VMHardDiskDrive -Path $_."Paths.Realized"
+          Add-VMHardDiskDrive -Path $_.Paths.Realized
       }
 
     $CompiledMember = $Member.SelectNodes("/Configuration/CompiledMembers/CompiledMember") |
@@ -579,10 +580,10 @@ function Build-LoadBuilderMember_ServiceOSVHD {
     Write-Verbose "  - Servicing os vhd."
 
     if ($Member.VHDSizeBytes -ne 40gb) {
-      Resize-VHD -Path $Member."Paths.Realized.VHD" -SizeBytes $Member.VHDSizeBytes
+      Resize-VHD -Path $Member.Paths.Realized.VHD -SizeBytes $Member.VHDSizeBytes
     }
 
-    $partition = Mount-VHD -Path $Member."Paths.Realized.VHD" -Passthru |
+    $partition = Mount-VHD -Path $Member.Paths.Realized.VHD -Passthru |
                    Get-Partition |
                    Where-Object Size -gt 1gb
 
@@ -707,7 +708,7 @@ function Build-LoadBuilderMember_ServiceOSVHD {
         Copy-LoadBuilderVHDPackage -VolumeRoot $volumeRoot
     }
 
-    Dismount-VHD -Path $Member."Paths.Realized.VHD"
+    Dismount-VHD -Path $Member.Paths.Realized.VHD
  
   }
 }
@@ -2153,11 +2154,11 @@ function Start-LoadBuilder {
     $resultObj."Resolved Configuration" = $Configuration
     $resultObj."Processing Status" = "Constructing load members."
 
-    if (Test-Path -LiteralPath $Configuration."Paths.Realized") {
+    if (Test-Path -LiteralPath $Configuration.Paths.Realized) {
       Remove-LoadBuilderRealizedLoad -Name $Configuration.Name
     }
 
-    New-Item -Path $Configuration."Paths.Realized" -ItemType Directory -Force |
+    New-Item -Path $Configuration.Paths.Realized -ItemType Directory -Force |
       Out-Null
 
     $Configuration |

@@ -686,7 +686,7 @@ function Build-LoadBuilderMember_ServiceOSVHD {
     if ($OfflinePackages.Count -gt 0) {
       $OfflinePackages |
         ForEach-Object {
-          Add-WindowsPackage -PackagePath $_ -Path $volumeRoot
+          Add-WindowsPackage -PackagePath $_ -Path $volumeRoot -Verbose:$false
         } |
         Out-Null
     }
@@ -1415,11 +1415,9 @@ function Invoke-LoadBuilderAction_Attended {
 
     Write-UserAlertMessage
 
-    Write-Message $Action.Description -Indent 0
-
-    Write-Message "When done, simply close the VM connection to continue." -Indent 0
-
-    Write-Message "Press [Enter] to Connect to VM..." -NoNewline
+    Write-Verbose "  - $($Action.Description)"
+    Write-Verbose "  - When finished, simply close the vm connection to continue."
+    Write-Verbose "  - Press [Enter] to connect to the vm."
 
     do {
       $keyInfo = [Console]::ReadKey($true)
@@ -1428,13 +1426,9 @@ function Invoke-LoadBuilderAction_Attended {
 
     $process = Start-Process "$env:SystemRoot\System32\vmconnect.exe" "localhost -G $($Targets | ForEach-Object VMId)" -PassThru
 
-    Write-MessageResult "Done!"
-
-    Write-Message "Waiting For VM Connection to Close..." -NoNewline
-
     $process | Wait-Process
 
-    Write-MessageResult "Done!"
+    Write-Verbose "  - VM connection has closed."
   }
 }
 function Invoke-LoadBuilderAction_Checkpoint {
@@ -2064,13 +2058,13 @@ function New-LoadBuilderShortcuts {
     if ($config.AlternateName -ne 'n/a') {
       $shortcutName += " ($($config.AlternateName))"
     }
-    $shortcutData += New-ShortcutData $shortcutName "Start Load",$config.Name -NoExit -RunAsAdministrator
+    $shortcutData += New-ShortcutData $shortcutName "Start Load",$config.Name -RunAsAdministrator
 
     $compiledAlternates = $config.SelectNodes("/Configuration/CompiledAlternates/CompiledAlternate/Name") |
                             ForEach-Object InnerXml
 
     foreach ($alternate in $compiledAlternates) {
-      $shortcutData += New-ShortcutData "Start Load ($alternate)" "Start Load",$config.Name,$alternate -NoExit -RunAsAdministrator
+      $shortcutData += New-ShortcutData "Start Load ($alternate)" "Start Load",$config.Name,$alternate -RunAsAdministrator
     }
 
   $shortcutData += New-ShortcutData "End Load" "End Load",$config.Name -RunAsAdministrator
@@ -2158,18 +2152,19 @@ function Start-LoadBuilder {
     $resultObj."Raw Configuration" = $Configuration
     $resultObj."Processing Status" = "Validating and resolving to available resources."
 
-    $Configuration = Resolve-LoadBuilderConfiguration `
+    $resultObj."Resolved Configuration" = 
+    $Configuration = 
+    Resolve-LoadBuilderConfiguration `
     -Configuration $Configuration `
     -ResolveMode $PSCmdlet.ParameterSetName `
     -Alternate $Alternate `
     -ErrorAction Stop
 
     $resultObj."Alternate Name" = $Configuration.AlternateName
-    $resultObj."Resolved Configuration" = $Configuration
     $resultObj."Processing Status" = "Constructing load members."
 
     if (Test-Path -LiteralPath $Configuration.Paths.Realized) {
-      Remove-LoadBuilderRealizedLoad -Name $Configuration.Name
+      Remove-LoadBuilderRealizedLoad -Name $Configuration.Name -ErrorAction Stop
     }
 
     New-Item -Path $Configuration.Paths.Realized -ItemType Directory -Force |

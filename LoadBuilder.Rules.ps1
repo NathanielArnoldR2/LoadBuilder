@@ -1495,10 +1495,10 @@ rule -Aggregate /Configuration/Actions/Action $atLeastOne
 #endregion
 
 if ($ResolveMode -eq "NamedConfiguration") {
-  . $PSScriptRoot\LoadBuilder.RuleEvaluator.Rules.NamedConfiguration.ps1
+  . $PSScriptRoot\LoadBuilder.Rules.NamedConfiguration.ps1
 }
 elseif ($ResolveMode -eq "SuppliedConfiguration") {
-  . $PSScriptRoot\LoadBuilder.RuleEvaluator.Rules.SuppliedConfiguration.ps1
+  . $PSScriptRoot\LoadBuilder.Rules.SuppliedConfiguration.ps1
 }
 
 #region Path data for realization

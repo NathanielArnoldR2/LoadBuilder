@@ -201,7 +201,7 @@ function Resolve-LoadBuilderConfiguration_EachPass {
 
     New-Alias -Name rule -Value New-EvaluationRule
 
-    . $PSScriptRoot\LoadBuilder.RuleEvaluator.Rules.ps1
+    . $PSScriptRoot\LoadBuilder.Rules.ps1
 
     Remove-Item alias:\rule
 

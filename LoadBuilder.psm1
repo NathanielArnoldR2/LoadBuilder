@@ -907,29 +907,6 @@ function Stop-LoadBuilderMonitoring ($collName) {
 #endregion
 
 #region Actions Orchestration
-function Do-LoadBuilderPokeAction ($Action, $TargetId, $TargetCredentials) {
-  Test-LoadBuilderActionTargetState $TargetId Poke Running
-
-  $params = @{
-    VMId = $TargetId
-  }
-
-  if ($Action.UseShim) {
-    $params.UseShim = $true
-    $params.Credentials = @(
-      $TargetCredentials |
-        ForEach-Object {
-          [pscredential]::new(
-            "$($_.Domain)\$($_.UserName)",
-            (ConvertTo-SecureString -String $_.Password -AsPlainText -Force)
-          )
-        }
-    )
-  }
-
-  Start-KvpPokeAckHandshake @params
-}
-
 function Test-LoadBuilderActionTargetState {
   [CmdletBinding(
     PositionalBinding = $false

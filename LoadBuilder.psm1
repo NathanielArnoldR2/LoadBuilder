@@ -129,13 +129,26 @@ param(
   $Filter = @()
 )
 
+# Notice a multitude of structures -- Where-Object & ForEach-Object scriptblock
+# notations, for example, and construction of the $PSScriptRoot variable, meant
+# to account for possible use of PowerShell 2.0 on Windows 7 or Server 2008 R2.
+
+if ($PSScriptRoot -isnot [string]) {
+  $PSScriptRoot = Split-Path -Path $MyInvocation.MyCommand.Path
+}
+
 $directories = Get-ChildItem -LiteralPath $PSScriptRoot |
                  Where-Object {$_ -is [System.IO.DirectoryInfo]}
 
 if ($Filter.Count -gt 0) {
   $directories = $directories |
-                   Where-Object {$_.Name -in $Filter}
+                   Where-Object {$Filter -contains $_.Name}
 }
+
+$goodExtensions = @(
+  ".psd1"
+  ".psm1"
+)
 
 $directories |
   ForEach-Object {
@@ -145,7 +158,7 @@ $directories |
       Get-ChildItem |
       Where-Object {
         $_.BaseName -eq $directory.Name -and
-        $_.Extension -in ".psd1",".psm1"
+        $goodExtensions -contains $_.Extension
       } |
       Sort-Object {$_.Extension -eq ".psd1"} -Descending |
       Select-Object -First 1 |
